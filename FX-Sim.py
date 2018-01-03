@@ -35,12 +35,12 @@ def FXSim(fxspot, vol, rdm, Year, time):
             if j == 0:
                 sim[i,j] = fxspot
             else:
-                sim[i,j] = sim[i,0]*time[j]*vol*rdm[i,j]
+                sim[i,j] = sim[i,0]+time[j]*vol*rdm[i,j]
     return sim
 
 def SimulateFXRates():
     """
-    main function
+    main function to simulate FX rates for each 
     """
     
     Path = "C:\\Users\\Malek\\Google Drive\\FXSim-Calib-Project\\"
@@ -71,7 +71,7 @@ def SimulateFXRates():
         df_Corr = df_LogR.loc[(n-OneYear):n,CcyList].corr(method='pearson')
 
         rdm = np.random.normal(0, 1, size=(6,NbSims,OneYear))
-        CorrRdm[:,:,n-dateRange[0]] = np.dot(df_Corr.as_matrix() , rdm[:,:,n-dateRange[0]])
+        CorrRdm[:,:,n-dateRange[0]] = np.dot(sp.linalg.cholesky(df_Corr).as_matrix() , rdm[:,:,n-dateRange[0]])
         
         for ccy in CcyList:
             ccyI = CcyList.index(ccy)
