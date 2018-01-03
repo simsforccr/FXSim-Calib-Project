@@ -9,6 +9,7 @@ import datetime
 import pandas as pd
 import numpy as np
 import scipy as sp
+from scipy import linalg
 
 NbSims = 1000
 
@@ -71,7 +72,7 @@ def SimulateFXRates():
         df_Corr = df_LogR.loc[(n-OneYear):n,CcyList].corr(method='pearson')
 
         rdm = np.random.normal(0, 1, size=(6,NbSims,OneYear))
-        CorrRdm[:,:,n-dateRange[0]] = np.dot(sp.linalg.cholesky(df_Corr).as_matrix() , rdm[:,:,n-dateRange[0]])
+        CorrRdm[:,:,n-dateRange[0]] = np.dot(linalg.cholesky(df_Corr) , rdm[:,:,n-dateRange[0]])
         
         for ccy in CcyList:
             ccyI = CcyList.index(ccy)
@@ -80,4 +81,3 @@ def SimulateFXRates():
     SimArray.append(ListOfSim)
     
     return SimArray
-
