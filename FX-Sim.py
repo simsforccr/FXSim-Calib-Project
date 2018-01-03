@@ -35,7 +35,7 @@ def FXSim(fxspot, vol, rdm, Year, time):
             if j == 0:
                 sim[i,j] = fxspot
             else:
-                sim[i,j] = sim[0,j]*time[j]*vol*rdm[i,j]
+                sim[i,j] = sim[i,0]*time[j]*vol*rdm[i,j]
     return sim
 
 def SimulateFXRates():
