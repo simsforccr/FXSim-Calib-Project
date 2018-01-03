@@ -43,8 +43,8 @@ def SimulateFXRates():
     """
     main function to simulate FX rates for each 
     """
-    
-    Path = "C:\\Users\\Malek\\Google Drive\\FXSim-Calib-Project\\"
+    Path = "C:\\Users\\Malek\\Documents\\Python Projects\\FXSim-Calib-Project\\"
+    #Path = "C:\\Users\\Malek\\Google Drive\\FXSim-Calib-Project\\"
     startdate = datetime.date(2014,1,2)
     enddate = datetime.date(2014,12,31)
     OneYear = 252
