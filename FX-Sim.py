@@ -24,20 +24,18 @@ class FXFwdTrade:
     PayLegCcy = None
     PayLegCFDate = None   
 
-def FXSim(fxspot, vol, corr, M, n, time):
+def FXSim(fxspot, vol, rdm, Year, time):
     """
     FX simulation for n days with x vol
     """
-    sim = np.zeros((NbSims,n))
+    sim = np.zeros((NbSims,Year))
     
-    for j in range(0,n):
-        if j == 0:
-            sim[i,j] = fxspot
-        else:
-            #Sch_Rdm = np.dot(sp.linalg.cholesky(df_Corr),rdm[:,:,j-dateRange[0]])
-            for i in range(0,NbSims):
-                sim[i,j] = sim[0,j]*time[j]*vol*Sch_Rdm[i,j]
-
+    for j in range(0,Year):
+        for i in range(0,NbSims):
+            if j == 0:
+                sim[i,j] = fxspot
+            else:
+                sim[i,j] = sim[0,j]*time[j]*vol*rdm[i,j]
     return sim
 
 def SimulateFXRates():
@@ -55,22 +53,31 @@ def SimulateFXRates():
     dateparse = lambda x: pd.datetime.strptime(x, '%d/%m/%Y')
     df = pd.read_csv(Path + 'FX-TimeSeries-Mod.csv', parse_dates=['DATE'], date_parser=dateparse)
     
+    CcyList = ['AUD', 'CAD', 'EUR', 'JPY', 'CHF', 'USD']
     # random iid standard normally distribution
     rdm = np.random.normal(0, 1, size=(6,NbSims,OneYear))
+    CorrRdm = np.zeros((6,NbSims,OneYear))
 
-    df_LogR = np.log(df.loc[:,['AUD', 'CAD', 'EUR', 'JPY', 'CHF', 'USD']]) - np.log(df.loc[:,['AUD', 'CAD', 'EUR', 'JPY', 'CHF', 'USD']].shift(1))
+    df_LogR = np.log(df.loc[:,CcyList]) - np.log(df.loc[:,CcyList].shift(1))
     df_Vol = df_LogR.rolling(OneYear, OneYear).std()*sp.sqrt(OneYear)    
     df_Vol = pd.concat([df.loc[:,['DATE']],df_Vol], axis=1)
 
     dateRange = [df_Vol.index[df_Vol['DATE'] == startdate].tolist()[0], df_Vol.index[df_Vol['DATE'] == enddate].tolist()[0]]
     
-    for ccy in ['AUD', 'CAD', 'EUR', 'JPY', 'CHF', 'USD']:
-        ListOfSim = []
-        for n in range(dateRange[0],dateRange[1]+1):
-            df_Corr = df_LogR.loc[(n-OneYear):n,['AUD', 'CAD', 'EUR', 'JPY', 'CHF', 'USD']].corr(method='pearson')
-            ListOfSim.append(FXSim(df.loc[n, ccy], df_Vol.loc[n,ccy], df_Corr.loc[n, ccy], rdm, OneYear, time_array))
-            
-        SimArray.append(ListOfSim)
+    
+    ListOfSim = []
+    for n in range(dateRange[0],dateRange[1]):
+        
+        df_Corr = df_LogR.loc[(n-OneYear):n,CcyList].corr(method='pearson')
+
+        rdm = np.random.normal(0, 1, size=(6,NbSims,OneYear))
+        CorrRdm[:,:,n-dateRange[0]] = np.dot(df_Corr.as_matrix() , rdm[:,:,n-dateRange[0]])
+        
+        for ccy in CcyList:
+            ccyI = CcyList.index(ccy)
+            ListOfSim.append(FXSim(df.loc[n, ccy], df_Vol.loc[n,ccy], CorrRdm[ccyI,:,:], OneYear, time_array))
+        
+    SimArray.append(ListOfSim)
     
     return SimArray
 
