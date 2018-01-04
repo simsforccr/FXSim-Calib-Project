@@ -11,6 +11,8 @@ import numpy as np
 import scipy as sp
 from scipy import linalg
 
+from matplotlib import pyplot as plt
+
 NbSims = 1000
 
 class FXFwdTrade:
@@ -25,18 +27,16 @@ class FXFwdTrade:
     PayLegCcy = None
     PayLegCFDate = None   
 
-def FXSim(fxspot, vol, rdm, Year, time):
+def FXSim(fxspot, vol, rdm, time):
     """
     FX simulation for n days with x vol
     """
-    sim = np.zeros((NbSims,Year))
+    sim = np.zeros((NbSims,len(time)))
     
-    for j in range(0,Year):
-        for i in range(0,NbSims):
-            if j == 0:
-                sim[i,j] = fxspot
-            else:
-                sim[i,j] = sim[i,0]+time[j]*vol*rdm[i,j]
+    for i in range(0,NbSims):
+        for j in range(0,len(time)):
+            sim[i,j] = fxspot+time[j]*vol*rdm[i,j]
+            
     return sim
 
 def SimulateFXRates():
@@ -45,39 +45,36 @@ def SimulateFXRates():
     """
     Path = "C:\\Users\\Malek\\Documents\\Python Projects\\FXSim-Calib-Project\\"
     #Path = "C:\\Users\\Malek\\Google Drive\\FXSim-Calib-Project\\"
-    startdate = datetime.date(2014,1,2)
-    enddate = datetime.date(2014,12,31)
-    OneYear = 252
-    SimArray = []
-    time_array = np.linspace(0,1,OneYear)
+    startdate = datetime.date(2015,1,2)
+    enddate = datetime.date(2015,12,31)
+    SimCalibration = (enddate - startdate).days
+    SimHorizon = 365
+    
+    time_array = np.linspace(0,1,SimCalibration)
+    CcyList = ['AUD', 'CAD', 'EUR', 'JPY', 'CHF', 'USD']
+    SimArray = np.zeros((SimCalibration,len(CcyList),NbSims,len(time_array)))
     
     dateparse = lambda x: pd.datetime.strptime(x, '%d/%m/%Y')
     df = pd.read_csv(Path + 'FX-TimeSeries-Mod.csv', parse_dates=['DATE'], date_parser=dateparse)
     
-    CcyList = ['AUD', 'CAD', 'EUR', 'JPY', 'CHF', 'USD']
-    # random iid standard normally distribution
-    rdm = np.random.normal(0, 1, size=(6,NbSims,OneYear))
-    CorrRdm = np.zeros((6,NbSims,OneYear))
-
     df_LogR = np.log(df.loc[:,CcyList]) - np.log(df.loc[:,CcyList].shift(1))
-    df_Vol = df_LogR.rolling(OneYear, OneYear).std()*sp.sqrt(OneYear)    
+    df_Vol = df_LogR.rolling(SimCalibration, SimCalibration).std()*sp.sqrt(SimCalibration)    
     df_Vol = pd.concat([df.loc[:,['DATE']],df_Vol], axis=1)
 
     dateRange = [df_Vol.index[df_Vol['DATE'] == startdate].tolist()[0], df_Vol.index[df_Vol['DATE'] == enddate].tolist()[0]]
     
-    
-    ListOfSim = []
-    for n in range(dateRange[0],dateRange[1]):
-        
-        df_Corr = df_LogR.loc[(n-OneYear):n,CcyList].corr(method='pearson')
-
-        rdm = np.random.normal(0, 1, size=(6,NbSims,OneYear))
-        CorrRdm[:,:,n-dateRange[0]] = np.dot(linalg.cholesky(df_Corr) , rdm[:,:,n-dateRange[0]])
+    # generate daily FX simulations over 1 year
+    for n in range(dateRange[0],dateRange[1]+1):
+        df_Corr = df_LogR.loc[(n-SimCalibration):n,CcyList].corr(method='pearson')
+        CorrRdm = np.zeros((6,NbSims,SimHorizon))
+        # generate for every n day correlated random numbers til the SimHorizon
+        for j in range(0, SimHorizon):
+            CorrRdm[:,:,j] = np.dot(linalg.cholesky(df_Corr) , np.random.normal(0, 1, size=(6,NbSims)))
+            
+        # generate FX simulations for every n day using the Correlated Random numbers generate before
         
         for ccy in CcyList:
             ccyI = CcyList.index(ccy)
-            ListOfSim.append(FXSim(df.loc[n, ccy], df_Vol.loc[n,ccy], CorrRdm[ccyI,:,:], OneYear, time_array))
-        
-    SimArray.append(ListOfSim)
-    
+            SimArray[n-dateRange[0],ccyI,:,:] = FXSim(df.loc[n, ccy], df_Vol.loc[n,ccy], CorrRdm[ccyI,:,:], time_array)           
+
     return SimArray
