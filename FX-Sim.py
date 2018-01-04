@@ -13,8 +13,12 @@ from scipy import linalg
 
 from matplotlib import pyplot as plt
 
+Path = "C:\\Users\\Malek\\Documents\\Python Projects\\FXSim-Calib-Project\\"
+startDate = datetime.date(2015,1,2)
+endDate = datetime.date(2015,12,31)
 NbSims = 1000
-
+SimLength = 365
+    
 class FXFwdTrade:
     startDate = None
     maturityDate = None
@@ -29,7 +33,7 @@ class FXFwdTrade:
 
 def FXSim(fxspot, vol, rdm, time):
     """
-    FX simulation for n days with x vol
+    FX simulation for n days with x vol using the random numbers provided over the "time" horizon
     """
     sim = np.zeros((NbSims,len(time)))
     
@@ -39,29 +43,29 @@ def FXSim(fxspot, vol, rdm, time):
             
     return sim
 
-def SimulateFXRates():
+def SimulateFXRates(FilePath, SD, ED, NbSimulations, SimHorizon):
     """
-    main function to simulate FX rates for each 
+    main function to simulate FX rates for each day
+    input is csv file path, startdate, enddate, Number of simulations and simHorizon (nb of days)
+    
+    output is a 4 dimension numpy array shaped by n days, currencyIndex, Nb simulations,  simHorizon (nb of days)
+        and the currency list as reference
     """
-    Path = "C:\\Users\\Malek\\Documents\\Python Projects\\FXSim-Calib-Project\\"
-    #Path = "C:\\Users\\Malek\\Google Drive\\FXSim-Calib-Project\\"
-    startdate = datetime.date(2015,1,2)
-    enddate = datetime.date(2015,12,31)
-    SimCalibration = (enddate - startdate).days
-    SimHorizon = 365
-    
-    time_array = np.linspace(0,1,SimCalibration)
-    CcyList = ['AUD', 'CAD', 'EUR', 'JPY', 'CHF', 'USD']
-    SimArray = np.zeros((SimCalibration,len(CcyList),NbSims,len(time_array)))
-    
+    # load historical timeseries
     dateparse = lambda x: pd.datetime.strptime(x, '%d/%m/%Y')
-    df = pd.read_csv(Path + 'FX-TimeSeries-Mod.csv', parse_dates=['DATE'], date_parser=dateparse)
+    df = pd.read_csv(FilePath, parse_dates=['DATE'], date_parser=dateparse)
+
+    # setup sim variables
+    SimCalibration = (ED - SD).days
+    time_array = np.linspace(0,1,SimCalibration)
+    CcyList = list(df)[1:]
+    SimArray = np.zeros((SimCalibration,len(CcyList),NbSims,len(time_array)))
     
     df_LogR = np.log(df.loc[:,CcyList]) - np.log(df.loc[:,CcyList].shift(1))
     df_Vol = df_LogR.rolling(SimCalibration, SimCalibration).std()*sp.sqrt(SimCalibration)    
     df_Vol = pd.concat([df.loc[:,['DATE']],df_Vol], axis=1)
 
-    dateRange = [df_Vol.index[df_Vol['DATE'] == startdate].tolist()[0], df_Vol.index[df_Vol['DATE'] == enddate].tolist()[0]]
+    dateRange = [df_Vol.index[df_Vol['DATE'] == SD].tolist()[0], df_Vol.index[df_Vol['DATE'] == ED].tolist()[0]]
     
     # generate daily FX simulations over 1 year
     for n in range(dateRange[0],dateRange[1]+1):
@@ -77,4 +81,6 @@ def SimulateFXRates():
             ccyI = CcyList.index(ccy)
             SimArray[n-dateRange[0],ccyI,:,:] = FXSim(df.loc[n, ccy], df_Vol.loc[n,ccy], CorrRdm[ccyI,:,:], time_array)           
 
-    return SimArray
+    return [SimArray, CcyList]
+
+[Sims,CcyList] = SimulateFXRates(Path + 'FX-TimeSeries-Mod.csv',startDate,endDate,NbSims,SimLength)
