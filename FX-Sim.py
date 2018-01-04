@@ -2,7 +2,7 @@
 """
 Soluce pour FX calib, sim and pricing
 
-M.Jawad - 01/01/2018
+M.Jawad - 04/01/2018
 
 """
 import datetime
@@ -14,8 +14,8 @@ from scipy import linalg
 from matplotlib import pyplot as plt
 
 Path = "C:\\Users\\Malek\\Documents\\Python Projects\\FXSim-Calib-Project\\"
-startDate = datetime.date(2014,1,2)
-endDate = datetime.date(2014,12,31)
+startDate = datetime.date(2015,1,2)
+endDate = datetime.date(2015,12,31)
 NbSims = 1000
 SimLength = 365    
 
@@ -39,8 +39,9 @@ def SimulateFXRates(FilePath, SD, ED, NbSimulations, SimHorizon):
     main function to simulate FX rates for each day
     input is csv file path, startdate, enddate, Number of simulations and simHorizon (nb of days)
     
-    output is a 4 dimension numpy array shaped by n days, currencyIndex, Nb simulations,  simHorizon (nb of days)
-        and the currency list as reference
+    output 1 is a 4 dimension numpy array shaped by n days, currencyIndex, Nb simulations,  simHorizon (nb of days)
+    output 2 is the currency list as reference
+    output 3 is a dataframe of dates for reference for valuation
     """
     
     # load historical timeseries
@@ -51,7 +52,6 @@ def SimulateFXRates(FilePath, SD, ED, NbSimulations, SimHorizon):
     SimCalibration = (ED - SD).days
     time_array = np.linspace(0,1,SimCalibration)
     CcyList = list(df)[1:]
-    SimArray = np.zeros((SimCalibration,len(CcyList),NbSims,len(time_array)))
     
     # generate log returns dateframe and rolling volatility over the length of the calibration period
     df_LogR = np.log(df.loc[:,CcyList]) - np.log(df.loc[:,CcyList].shift(1))
@@ -59,6 +59,7 @@ def SimulateFXRates(FilePath, SD, ED, NbSimulations, SimHorizon):
     df_Vol = pd.concat([df.loc[:,['DATE']],df_Vol], axis=1)
 
     dateRange = [df_Vol.index[df_Vol['DATE'] == SD].tolist()[0], df_Vol.index[df_Vol['DATE'] == ED].tolist()[0]]
+    SimArray = np.zeros((dateRange[1]-dateRange[0],len(CcyList),NbSims,len(time_array)))
     # generate daily FX simulations over 1 year
     for n in range(dateRange[0],dateRange[1]+1):
         
@@ -75,7 +76,7 @@ def SimulateFXRates(FilePath, SD, ED, NbSimulations, SimHorizon):
             ccyI = CcyList.index(ccy)
             SimArray[n-dateRange[0],ccyI,:,:] = FXSim(df.loc[n, ccy], df_Vol.loc[n,ccy], CorrRdm[ccyI,:,:], time_array)           
 
-    return [SimArray, CcyList]
+    return [SimArray, CcyList, df.loc[:,['DATE']]]
 
 # =============================================================================
 # # define a trade class
@@ -101,12 +102,23 @@ def SimulateFXRates(FilePath, SD, ED, NbSimulations, SimHorizon):
 #         self.PayLegCcy = PayCcy
 #         self.PayLegCFDate = TradeStartDate  
 #
-#     def MTM(self, Sims):
+#     def MTF(self, BatchDate, Dates, CcyList, Sims):
+#        BatchIndex = Dates.index[Dates['DATE'] == BatchDate].tolist()[0]
+#        if self.RecLegCcy == 'GBP':
+#            RecGBPNot = self.RecLegNotional
+#        else:
+#            RecIndex = CcyList.index(self.RecLegCcy)
+#            RecCFIndex = Dates.index[Dates['DATE'] == self.RecLegCFDate].tolist()[0]
+#            RecGBPNot = self.RecLegNotional*Sims[BatchIndex,RecIndex,:,]
+#
+#     def MTM(self, BatchDate, Dates, CcyList, Sims):
+#
+#     def EE(self, BatchDate, Dates, CcyList, Sims):
 #         
-#         
+#     def PFE(self, BatchDate, Dates, CcyList, Sims):
+#
 #         
 # =============================================================================
         
-[Sims,CcyList] = SimulateFXRates(Path + 'FX-TimeSeries-Mod.csv',startDate,endDate,NbSims,SimLength)
-
-plt.plot(np.linspace(0,1,(startDate-endDate).days), Sims[:,CcyList.index('JPY'),0,0])
+[Sims,CcyList,dfDates] = SimulateFXRates(Path + 'FX-TimeSeries-Mod.csv',startDate,endDate,NbSims,SimLength)
+plt.plot(np.linspace(0,1,(endDate-startDate).days), Sims[:,CcyList.index('JPY'),0,0])
