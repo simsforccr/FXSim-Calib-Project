@@ -59,17 +59,17 @@ def SimulateFXRates(FilePath, SD, ED, NbSimulations, SimHorizon):
     df_Vol = pd.concat([df.loc[:,['DATE']],df_Vol], axis=1)
 
     dateRange = [df_Vol.index[df_Vol['DATE'] == SD].tolist()[0], df_Vol.index[df_Vol['DATE'] == ED].tolist()[0]]
-    SimArray = np.zeros((dateRange[1]-dateRange[0],len(CcyList),NbSims,len(time_array)))
+    SimArray = np.zeros((dateRange[1]-dateRange[0]+1,len(CcyList),NbSimulations,len(time_array)))
     # generate daily FX simulations over 1 year
     for n in range(dateRange[0],dateRange[1]+1):
         
         # generate the correlation matrix from the log return dataframe for each day
-        df_Corr = df_LogR.loc[(n-SimCalibration):n,CcyList].corr(method='pearson')
+        df_Corr = df_LogR.loc[(n-dateRange[0]):n,CcyList].corr(method='pearson')
         
         # generate for every n day correlated random numbers til the SimHorizon
-        CorrRdm = np.zeros((6,NbSims,SimHorizon))
+        CorrRdm = np.zeros((len(CcyList),NbSimulations,SimHorizon))
         for j in range(0, SimHorizon):
-            CorrRdm[:,:,j] = np.dot(linalg.cholesky(df_Corr) , np.random.normal(0, 1, size=(6,NbSims)))
+            CorrRdm[:,:,j] = np.dot(linalg.cholesky(df_Corr) , np.random.normal(0, 1, size=(len(CcyList),NbSimulations)))
             
         # generate FX simulations for every n day using the Correlated Random numbers generate before
         for ccy in CcyList:
@@ -109,7 +109,7 @@ def SimulateFXRates(FilePath, SD, ED, NbSimulations, SimHorizon):
 #        else:
 #            RecIndex = CcyList.index(self.RecLegCcy)
 #            RecCFIndex = Dates.index[Dates['DATE'] == self.RecLegCFDate].tolist()[0]
-#            RecGBPNot = self.RecLegNotional*Sims[BatchIndex,RecIndex,:,]
+#            RecGBPNot = self.RecLegNotional*Sims[BatchIndex,RecIndex,:,RecCFIndex-BatchIndex]
 #
 #     def MTM(self, BatchDate, Dates, CcyList, Sims):
 #
@@ -121,4 +121,4 @@ def SimulateFXRates(FilePath, SD, ED, NbSimulations, SimHorizon):
 # =============================================================================
         
 [Sims,CcyList,dfDates] = SimulateFXRates(Path + 'FX-TimeSeries-Mod.csv',startDate,endDate,NbSims,SimLength)
-plt.plot(np.linspace(0,1,(endDate-startDate).days), Sims[:,CcyList.index('JPY'),0,0])
+plt.plot(np.linspace(0,1,len(Sims[:,CcyList.index('JPY'),0,0])), Sims[:,CcyList.index('JPY'),0,0])
