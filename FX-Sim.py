@@ -122,3 +122,11 @@ def SimulateFXRates(FilePath, SD, ED, NbSimulations, SimHorizon):
         
 [Sims,CcyList,dfDates] = SimulateFXRates(Path + 'FX-TimeSeries-Mod.csv',startDate,endDate,NbSims,SimLength)
 plt.plot(np.linspace(0,1,len(Sims[:,CcyList.index('JPY'),0,0])), Sims[:,CcyList.index('JPY'),0,0])
+
+# =============================================================================
+# plt.clf()
+# y = []
+# for i in range(0,len(Sims[:,CcyList.index('JPY'),0,0])):
+#     y.append(np.average(Sims[i,CcyList.index('JPY'),:,362]))
+# plt.plot(np.linspace(0,1,len(y)),y)
+# =============================================================================
