@@ -17,7 +17,8 @@ Path = "C:\\Users\\Malek\\Documents\\Python Projects\\FXSim-Calib-Project\\"
 startDate = datetime.date(2015,1,2)
 endDate = datetime.date(2015,12,31)
 NbSims = 1000
-SimLength = 365    
+SimLength = 365
+Percentile = 99
 
 def FXSim(fxspot, vol, rdm, time):
     """
@@ -78,47 +79,68 @@ def SimulateFXRates(FilePath, SD, ED, NbSimulations, SimHorizon):
 
     return [SimArray, CcyList, df.loc[:,['DATE']]]
 
-# =============================================================================
-# # define a trade class
-# class FXFwdTrade:
-#     def __init__(self):
-#         self.TradeStartDate = endDate
-#         self.maturityDate = endDate + datetime.timedelta(year = 1)   
-#         self.RecLegNotional = 1000
-#         self.RecLegCcy = 'AUD'
-#         self.RecLegCFDate = maturityDate
-#         
-#         self.PayLegNotional = 1000
-#         self.PayLegCcy = 'GBP'
-#         self.PayLegCFDate = TradeStartDate
-#     
-#     def __init__(self,TradeStart,MatDate,RecNot,RecCcy,PayNot,PayCcy):
-#         self.TradeStartDate = TradeStart
-#         self.maturityDate = MatDate   
-#         self.RecLegNotional = RecNot
-#         self.RecLegCcy = RecCcy
-#         self.RecLegCFDate = maturityDate
-#         self.PayLegNotional = PayNot
-#         self.PayLegCcy = PayCcy
-#         self.PayLegCFDate = TradeStartDate  
-#
-#     def MTF(self, BatchDate, Dates, CcyList, Sims):
-#        BatchIndex = Dates.index[Dates['DATE'] == BatchDate].tolist()[0]
-#        if self.RecLegCcy == 'GBP':
-#            RecGBPNot = self.RecLegNotional
-#        else:
-#            RecIndex = CcyList.index(self.RecLegCcy)
-#            RecCFIndex = Dates.index[Dates['DATE'] == self.RecLegCFDate].tolist()[0]
-#            RecGBPNot = self.RecLegNotional*Sims[BatchIndex,RecIndex,:,RecCFIndex-BatchIndex]
-#
-#     def MTM(self, BatchDate, Dates, CcyList, Sims):
-#
-#     def EE(self, BatchDate, Dates, CcyList, Sims):
-#         
-#     def PFE(self, BatchDate, Dates, CcyList, Sims):
-#
-#         
-# =============================================================================
+# define a trade class
+class FXfwdTrade:
+    
+    def __init__(self):
+        self.TradeStartDate = endDate
+        self.maturityDate = endDate + datetime.timedelta(year = 1)   
+        self.RecLegNotional = 1000
+        self.RecLegCcy = 'AUD'
+        self.RecLegCFDate = self.maturityDate
+        
+        self.PayLegNotional = 1000
+        self.PayLegCcy = 'GBP'
+        self.PayLegCFDate = self.TradeStartDate
+    
+    def __init__(self,TradeStart,MatDate,RecNot,RecCcy,PayNot,PayCcy):
+        self.TradeStartDate = TradeStart
+        self.maturityDate = MatDate   
+        self.RecLegNotional = RecNot
+        self.RecLegCcy = RecCcy
+        self.RecLegCFDate = self.maturityDate
+        self.PayLegNotional = PayNot
+        self.PayLegCcy = PayCcy
+        self.PayLegCFDate = self.TradeStartDate  
+
+    def GenerateMTF(self, BatchDate, Dates, CcyList, Sims):
+        BatchIndex = Dates.index[Dates['DATE'] == BatchDate].tolist()[0]
+        MaturityIndex = (self.maturityDate - BatchDate).days
+  
+        # get the receive leg
+        RecCcyIndex = CcyList.index(self.RecLegCcy)
+        if self.RecLegCcy == 'GBP':
+            RecGBPNot = self.RecLegNotional #* np.exp(-MaturityIndex/365*DF[BatchIndex, RecCcyIndex,:,MaturityIndex])
+        else:
+            RecGBPNot = self.RecLegNotional*Sims[BatchIndex,RecCcyIndex,:,:MaturityIndex] #* np.exp(-MaturityIndex/365*DF[BatchIndex, RecCcyIndex,:,:MaturityIndex])
+
+        # get the pay leg
+        PayCcyIndex = CcyList.index(self.PayLegCcy)
+        if self.PayLegCcy == 'GBP':
+            PayGBPNot = self.PayLegNotional #* np.exp(-MaturityIndex/365*DF[BatchIndex, RecPayIndex,:,MaturityIndex])
+        else:
+            PayGBPNot = self.PayLegNotional*Sims[BatchIndex,PayCcyIndex,:,:MaturityIndex] #* np.exp(-MaturityIndex/365*DF[BatchIndex, PayCcyIndex,:,:MaturityIndex]
+
+        # price the forward or spot from RecGBPNot and PayGBPNot (both are numpy array 1000 x days to maturity)
+        self.MTF = RecGBPNot - PayGBPNot
+
+    def MTM(self, BatchDate, Dates, CcyList, Sims):
+        if self.MTF is None:
+            self.GenerateMTF(self, BatchDate, Dates, CcyList, Sims)
+        self.MTM = np.average(self.MTF[:,-1])
+
+    def EE(self, BatchDate, Dates, CcyList, Sims):
+        if self.MTF is None:
+            self.GenerateMTF(self, BatchDate, Dates, CcyList, Sims)
+        E = self.MTF
+        E[E < 0] = 0
+        self.EE = np.average(E[:,:])
+        
+    def PFE(self, BatchDate, Dates, CcyList, Sims):
+        if self.MTF is None:
+            self.GenerateMTF(self, BatchDate, Dates, CcyList, Sims)
+        self.PFE = np.percentile(self.PFE,Percentile,interpolation='nearest')
+
         
 [Sims,CcyList,dfDates] = SimulateFXRates(Path + 'FX-TimeSeries-Mod.csv',startDate,endDate,NbSims,SimLength)
 plt.plot(np.linspace(0,1,len(Sims[:,CcyList.index('JPY'),0,0])), Sims[:,CcyList.index('JPY'),0,0])
