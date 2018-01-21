@@ -108,19 +108,19 @@ class FXfwdTrade:
             
             # get the receive leg
             if self.RecLegCcy == 'GBP':
-                RecGBPNot = self.RecLegNotional * np.ones((NbSims,len(CcyList)-1))
+                RecGBPNot = self.RecLegNotional * np.ones(np.shape(Sims[BatchIndex,0,:,:MaturityIndex]))
                 #* np.exp(-MaturityIndex/365*DF[BatchIndex, RecCcyIndex,:,MaturityIndex])
             else:
                 RecCcyIndex = CcyList.index(self.RecLegCcy)
-                RecGBPNot = self.RecLegNotional*Sims[BatchIndex,RecCcyIndex,:,:MaturityIndex] #* np.exp(-MaturityIndex/365*DF[BatchIndex, RecCcyIndex,:,:MaturityIndex])
+                RecGBPNot = self.RecLegNotional/Sims[BatchIndex,RecCcyIndex,:,:MaturityIndex] #* np.exp(-MaturityIndex/365*DF[BatchIndex, RecCcyIndex,:,:MaturityIndex])
             
             # get the pay leg
             if self.PayLegCcy == 'GBP':
-                PayGBPNot = self.PayLegNotional * np.ones((NbSims,len(CcyList)-1))
+                PayGBPNot = self.PayLegNotional * np.ones(np.shape(Sims[BatchIndex,0,:,:MaturityIndex]))
                 #* np.exp(-MaturityIndex/365*DF[BatchIndex, RecPayIndex,:,MaturityIndex])
             else:
                 PayCcyIndex = CcyList.index(self.PayLegCcy)
-                PayGBPNot = self.PayLegNotional*Sims[BatchIndex,PayCcyIndex,:,:MaturityIndex] #* np.exp(-MaturityIndex/365*DF[BatchIndex, PayCcyIndex,:,:MaturityIndex]
+                PayGBPNot = self.PayLegNotional/Sims[BatchIndex,PayCcyIndex,:,:MaturityIndex] #* np.exp(-MaturityIndex/365*DF[BatchIndex, PayCcyIndex,:,:MaturityIndex]
             # price the forward or spot from RecGBPNot and PayGBPNot (both are numpy array 1000 x days to maturity)
             self.MTF = RecGBPNot - PayGBPNot
         else:
@@ -154,22 +154,25 @@ class FXfwdTrade:
 #     y.append(np.average(Sims[i,CcyList.index('JPY'),:,362]))
 # plt.plot(np.linspace(0,1,len(y)),y)
 # =============================================================================
-TradeStartDate = datetime.date(2015,6,1)
-FXRateIndex = dfDates.index[dfDates['DATE'] == TradeStartDate].tolist()[0] - dfDates.index[dfDates['DATE'] == startDate].tolist()[0]
-a = FXfwdTrade(TradeStartDate,datetime.date(2015,6,7),1000,'USD',1000,'EUR')
-a.GenerateMTF(datetime.date(2015,6,2),dfDates,FXCcyList,FXSims)
+
+
+#FXRateIndex = dfDates.index[dfDates['DATE'] == TradeStartDate].tolist()[0] - dfDates.index[dfDates['DATE'] == startDate].tolist()[0]
+a = FXfwdTrade(datetime.date(2015,6,1),datetime.date(2015,6,7),1000,'GBP',1000,'EUR')
+a.GenerateMTF(datetime.date(2015,6,1),dfDates,FXCcyList,FXSims)
 
 plt.clf()
 for i in range(0,len(a.MTF[:,0])):
     plt.plot(a.EE())
     plt.plot(a.PFE(98))
+    plt.plot(a.PFE(90))
+    plt.plot(a.PFE(10))
     plt.plot(a.PFE(2))
+plt.show()
 
-#plt.clf()
-#MTMVector = []
-#for BatchDate in daterange(a.TradeStartDate, a.maturityDate):
-#    a.GenerateMTF(BatchDate,dfDates,CcyList,Sims)
-#    MTMVector.append(a.MTM())
-# 
-#print(len(MTMVector))
-#plt.plot(MTMVector)
+plt.clf()
+MTMVector = []
+for BatchDate in daterange(a.TradeStartDate, a.maturityDate):
+    a.GenerateMTF(BatchDate,dfDates,FXCcyList,FXSims)
+    MTMVector.append(a.MTM())
+plt.plot(MTMVector)
+
