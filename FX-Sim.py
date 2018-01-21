@@ -35,7 +35,7 @@ def FXSim(fxspot, vol, rdm, time):
     # simulate a random walk FX with no IR discounting
     for i in range(0,NbSims):
         for j in range(0,len(time)):
-            sim[i,j] = fxspot+time[j]*vol*rdm[i,j]*100
+            sim[i,j] = fxspot+time[j]*vol*rdm[i,j]
     
     # return simulation
     return sim
@@ -104,11 +104,14 @@ class FXfwdTrade:
                             
             BatchStartIndex = Dates.index[Dates['DATE'] == startDate].tolist()[0]
             BatchIndex = Dates.index[Dates['DATE'] == BatchDate].tolist()[0] - BatchStartIndex
+            TradeStartIndex = Dates.index[Dates['DATE'] == self.TradeStartDate].tolist()[0] - BatchStartIndex
+            #TradeEndIndex = Dates.index[Dates['DATE'] == self.maturityDate].tolist()[0] - BatchStartIndex
             MaturityIndex = (self.maturityDate - BatchDate).days
+            SimShape = np.shape(Sims[BatchIndex,0,:,:MaturityIndex])
             
             # get the receive leg
             if self.RecLegCcy == 'GBP':
-                RecGBPNot = self.RecLegNotional * np.ones(np.shape(Sims[BatchIndex,0,:,:MaturityIndex]))
+                RecGBPNot = self.RecLegNotional * np.ones(SimShape)
                 #* np.exp(-MaturityIndex/365*DF[BatchIndex, RecCcyIndex,:,MaturityIndex])
             else:
                 RecCcyIndex = CcyList.index(self.RecLegCcy)
@@ -116,17 +119,18 @@ class FXfwdTrade:
             
             # get the pay leg
             if self.PayLegCcy == 'GBP':
-                PayGBPNot = self.PayLegNotional * np.ones(np.shape(Sims[BatchIndex,0,:,:MaturityIndex]))
+                PayGBPNot = self.PayLegNotional * np.ones(SimShape)
                 #* np.exp(-MaturityIndex/365*DF[BatchIndex, RecPayIndex,:,MaturityIndex])
             else:
                 PayCcyIndex = CcyList.index(self.PayLegCcy)
-                PayGBPNot = self.PayLegNotional/Sims[BatchIndex,PayCcyIndex,:,:MaturityIndex] #* np.exp(-MaturityIndex/365*DF[BatchIndex, PayCcyIndex,:,:MaturityIndex]
+                PayGBPNot = self.PayLegNotional/Sims[TradeStartIndex,PayCcyIndex,0,0]*np.ones(SimShape)
+                #* np.exp(-MaturityIndex/365*DF[BatchIndex, PayCcyIndex,:,:MaturityIndex]
             # price the forward or spot from RecGBPNot and PayGBPNot (both are numpy array 1000 x days to maturity)
             self.MTF = RecGBPNot - PayGBPNot
 
     def MTM(self):
         if self.MTF is not None:
-            return np.average(self.MTF[:,-1])
+            return np.average(self.MTF[:,0])
 
     def EE(self):
         if self.MTF is not None:
@@ -138,27 +142,20 @@ class FXfwdTrade:
         if self.MTF is not None:
             return np.percentile(self.MTF[:,:],Percent,axis=0,interpolation='nearest')
 
-        
-#[FXSims,FXCcyList,dfDates] = SimulateFXRates(Path + 'FX-TimeSeries-Mod.csv',startDate,endDate,NbSims,SimLength)
-#plt.plot(np.linspace(0,1,len(Sims[:,CcyList.index('JPY'),0,0])), Sims[:,CcyList.index('JPY'),0,0])
+# Generate FX Sims    
+[FXSims,FXCcyList,dfDates] = SimulateFXRates(Path + 'FX-TimeSeries-Mod.csv',startDate,endDate,NbSims,SimLength)
+#plt.plot(np.linspace(0,1,len(FXSims[:,FXCcyList.index('EUR'),0,0])), FXSims[:,FXCcyList.index('USD'),0,0]/ FXSims[:,FXCcyList.index('EUR'),0,0])
 
-#=============================================================================
-plt.clf()
-y = []
-for i in range(0,len(FXSims[:,FXCcyList.index('EUR'),0,0])):
-    y.append(np.average(FXSims[i,FXCcyList.index('EUR'),:,362]/FXSims[i,FXCcyList.index('USD'),:,362]))
-plt.plot(np.linspace(0,1,len(y)),y)
-plt.show()
-#=============================================================================
+# Generate a trade
+TradeStartDate = datetime.date(2015,6,1)
+FXRecIndex = dfDates.index[dfDates['DATE'] == TradeStartDate].tolist()[0] - dfDates.index[dfDates['DATE'] == startDate].tolist()[0]
+FXRecRate = FXSims[FXRecIndex,FXCcyList.index('EUR'),0,0]
+#FXPayIndex = dfDates.index[dfDates['DATE'] == datetime.date(2015,6,1)].tolist()[0] - dfDates.index[dfDates['DATE'] == startDate].tolist()[0]
+#FXPayRate = FXSims[FXPayIndex,FXCcyList.index('EUR'),0,0]
+a = FXfwdTrade(datetime.date(2015,6,1),datetime.date(2015,9,1),1000*FXRecRate,'EUR',1000,'GBP')
 
-
-FXRateIndex = dfDates.index[dfDates['DATE'] == TradeStartDate].tolist()[0] - dfDates.index[dfDates['DATE'] == startDate].tolist()[0]
-FXRecRate = FXSims[FXRateIndex,FXCcyList.index('USD'),0,0]
-FXPayRate = FXSims[FXRateIndex,FXCcyList.index('EUR'),0,0]
-
-a = FXfwdTrade(datetime.date(2015,6,1),datetime.date(2015,6,7),1000*FXRecRate,'USD',1000*FXPayRate,'EUR')
+# plot initial PFEs vs realised MTM
 a.GenerateMTF(datetime.date(2015,6,1),dfDates,FXCcyList,FXSims)
-
 plt.clf()
 for i in range(0,len(a.MTF[:,0])):
     #plt.plot(a.EE())
@@ -168,11 +165,13 @@ for i in range(0,len(a.MTF[:,0])):
     plt.plot(a.PFE(25))
     plt.plot(a.PFE(10))
     plt.plot(a.PFE(2))
-    
+#    
 MTMVector = []
 for BatchDate in daterange(a.TradeStartDate, a.maturityDate):
     a.GenerateMTF(BatchDate,dfDates,FXCcyList,FXSims)
     MTMVector.append(a.MTM())
+    
+print(MTMVector)
 plt.plot(MTMVector)
 
 plt.show()
