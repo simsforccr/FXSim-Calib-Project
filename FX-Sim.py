@@ -123,11 +123,6 @@ class FXfwdTrade:
                 PayGBPNot = self.PayLegNotional/Sims[BatchIndex,PayCcyIndex,:,:MaturityIndex] #* np.exp(-MaturityIndex/365*DF[BatchIndex, PayCcyIndex,:,:MaturityIndex]
             # price the forward or spot from RecGBPNot and PayGBPNot (both are numpy array 1000 x days to maturity)
             self.MTF = RecGBPNot - PayGBPNot
-        else:
-            if np.datetime64(startDate) not in Dates.values:
-                print("startDate not a trading day")
-            if np.datetime64(BatchDate) not in Dates.values:
-                print("BatchDate not a trading day")
 
     def MTM(self):
         if self.MTF is not None:
@@ -156,23 +151,25 @@ class FXfwdTrade:
 # =============================================================================
 
 
-#FXRateIndex = dfDates.index[dfDates['DATE'] == TradeStartDate].tolist()[0] - dfDates.index[dfDates['DATE'] == startDate].tolist()[0]
-a = FXfwdTrade(datetime.date(2015,6,1),datetime.date(2015,6,7),1000,'GBP',1000,'EUR')
+FXRateIndex = dfDates.index[dfDates['DATE'] == TradeStartDate].tolist()[0] - dfDates.index[dfDates['DATE'] == startDate].tolist()[0]
+FXRecRate = FXSims[FXRateIndex,FXCcyList.index('USD'),0,0]
+FXPayRate = FXSims[FXRateIndex,FXCcyList.index('EUR'),0,0]
+
+a = FXfwdTrade(datetime.date(2015,6,1),datetime.date(2015,6,7),1000*FXRecRate,'USD',1000*FXPayRate,'EUR')
 a.GenerateMTF(datetime.date(2015,6,1),dfDates,FXCcyList,FXSims)
 
 plt.clf()
 for i in range(0,len(a.MTF[:,0])):
-    plt.plot(a.EE())
+    #plt.plot(a.EE())
     plt.plot(a.PFE(98))
-    plt.plot(a.PFE(90))
-    plt.plot(a.PFE(10))
+    #plt.plot(a.PFE(90))
+    #plt.plot(a.PFE(10))
     plt.plot(a.PFE(2))
-plt.show()
-
-plt.clf()
+    
 MTMVector = []
 for BatchDate in daterange(a.TradeStartDate, a.maturityDate):
     a.GenerateMTF(BatchDate,dfDates,FXCcyList,FXSims)
     MTMVector.append(a.MTM())
 plt.plot(MTMVector)
 
+plt.show()
