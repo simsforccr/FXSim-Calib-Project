@@ -35,7 +35,7 @@ def FXSim(fxspot, vol, rdm, time):
     # simulate a random walk FX with no IR discounting
     for i in range(0,NbSims):
         for j in range(0,len(time)):
-            sim[i,j] = fxspot+time[j]*vol*rdm[i,j]
+            sim[i,j] = fxspot+time[j]*vol*rdm[i,j]*100
     
     # return simulation
     return sim
@@ -142,13 +142,14 @@ class FXfwdTrade:
 #[FXSims,FXCcyList,dfDates] = SimulateFXRates(Path + 'FX-TimeSeries-Mod.csv',startDate,endDate,NbSims,SimLength)
 #plt.plot(np.linspace(0,1,len(Sims[:,CcyList.index('JPY'),0,0])), Sims[:,CcyList.index('JPY'),0,0])
 
-# =============================================================================
-# plt.clf()
-# y = []
-# for i in range(0,len(Sims[:,CcyList.index('JPY'),0,0])):
-#     y.append(np.average(Sims[i,CcyList.index('JPY'),:,362]))
-# plt.plot(np.linspace(0,1,len(y)),y)
-# =============================================================================
+#=============================================================================
+plt.clf()
+y = []
+for i in range(0,len(FXSims[:,FXCcyList.index('EUR'),0,0])):
+    y.append(np.average(FXSims[i,FXCcyList.index('EUR'),:,362]/FXSims[i,FXCcyList.index('USD'),:,362]))
+plt.plot(np.linspace(0,1,len(y)),y)
+plt.show()
+#=============================================================================
 
 
 FXRateIndex = dfDates.index[dfDates['DATE'] == TradeStartDate].tolist()[0] - dfDates.index[dfDates['DATE'] == startDate].tolist()[0]
@@ -162,8 +163,10 @@ plt.clf()
 for i in range(0,len(a.MTF[:,0])):
     #plt.plot(a.EE())
     plt.plot(a.PFE(98))
-    #plt.plot(a.PFE(90))
-    #plt.plot(a.PFE(10))
+    plt.plot(a.PFE(90))
+    plt.plot(a.PFE(75))
+    plt.plot(a.PFE(25))
+    plt.plot(a.PFE(10))
     plt.plot(a.PFE(2))
     
 MTMVector = []
