@@ -23,7 +23,6 @@ def daterange(start_date, end_date):
 
 NbSims = 1000
 SimLength = 365
-Percentile = 99
 
 def FXSim(fxspot, vol, rdm, time):
     """
@@ -31,14 +30,19 @@ def FXSim(fxspot, vol, rdm, time):
     """
     # create an array of lenght NbSims x "time" horizon
     sim = np.zeros((NbSims,len(time)))
-    
     # simulate a random walk FX with no IR discounting
     for i in range(0,NbSims):
         for j in range(0,len(time)):
-            sim[i,j] = fxspot+time[j]*vol*rdm[i,j]
-    
+            #sim[i,j] = fxspot+time[j]*(vol)*rdm[i,j]*10/2 # percentage divide by 2 (xccy)
+            sim[i,j] = fxspot+np.sqrt(time[j])*(vol)*rdm[i,j]
     # return simulation
     return sim
+
+## issue with FXSim model is for very short periods, we underestimate the risk associated with FX fwds.
+## lets get another vol dataframe maybe? with a 1m vol floored with the 1y vol applied to the front of the sims?
+
+## otherwise change the simulation model with linear waiting of time?
+## e.g. switch to np.sqrt(time) ? means that volatilities are applied faster over the 1st half of the year?
 
 def SimulateFXRates(FilePath, SD, ED, NbSimulations, SimHorizon):
     """
@@ -95,7 +99,7 @@ class FXfwdTrade:
         self.RecLegCFDate = self.maturityDate
         self.PayLegNotional = PayNot
         self.PayLegCcy = PayCcy
-        self.PayLegCFDate = self.TradeStartDate  
+        self.PayLegCFDate = self.maturityDate  
 
     def GenerateMTF(self, BatchDate, Dates, CcyList, Sims):
         if np.datetime64(startDate) in Dates.values and np.datetime64(BatchDate) in Dates.values:
@@ -123,7 +127,7 @@ class FXfwdTrade:
                 #* np.exp(-MaturityIndex/365*DF[BatchIndex, RecPayIndex,:,MaturityIndex])
             else:
                 PayCcyIndex = CcyList.index(self.PayLegCcy)
-                PayGBPNot = self.PayLegNotional/Sims[TradeStartIndex,PayCcyIndex,0,0]*np.ones(SimShape)
+                PayGBPNot = self.PayLegNotional/Sims[BatchIndex,PayCcyIndex,0,0]*np.ones(SimShape)
                 #* np.exp(-MaturityIndex/365*DF[BatchIndex, PayCcyIndex,:,:MaturityIndex]
             # price the forward or spot from RecGBPNot and PayGBPNot (both are numpy array 1000 x days to maturity)
             self.MTF = RecGBPNot - PayGBPNot
@@ -143,16 +147,15 @@ class FXfwdTrade:
             return np.percentile(self.MTF[:,:],Percent,axis=0,interpolation='nearest')
 
 # Generate FX Sims    
-[FXSims,FXCcyList,dfDates] = SimulateFXRates(Path + 'FX-TimeSeries-Mod.csv',startDate,endDate,NbSims,SimLength)
-#plt.plot(np.linspace(0,1,len(FXSims[:,FXCcyList.index('EUR'),0,0])), FXSims[:,FXCcyList.index('USD'),0,0]/ FXSims[:,FXCcyList.index('EUR'),0,0])
+#[FXSims,FXCcyList,dfDates] = SimulateFXRates(Path + 'FX-TimeSeries-Mod.csv',startDate,endDate,NbSims,SimLength)
 
 # Generate a trade
 TradeStartDate = datetime.date(2015,6,1)
-FXRecIndex = dfDates.index[dfDates['DATE'] == TradeStartDate].tolist()[0] - dfDates.index[dfDates['DATE'] == startDate].tolist()[0]
-FXRecRate = FXSims[FXRecIndex,FXCcyList.index('EUR'),0,0]
+#FXRecIndex = dfDates.index[dfDates['DATE'] == TradeStartDate].tolist()[0] - dfDates.index[dfDates['DATE'] == startDate].tolist()[0]
+#FXRecRate = FXSims[FXRecIndex,FXCcyList.index('EUR'),0,0]
 #FXPayIndex = dfDates.index[dfDates['DATE'] == datetime.date(2015,6,1)].tolist()[0] - dfDates.index[dfDates['DATE'] == startDate].tolist()[0]
-#FXPayRate = FXSims[FXPayIndex,FXCcyList.index('EUR'),0,0]
-a = FXfwdTrade(datetime.date(2015,6,1),datetime.date(2015,9,1),1000*FXRecRate,'EUR',1000,'GBP')
+#FXPayRate = FXSims[FXPayIndex,FXCcyList.index('USD'),0,0]
+a = FXfwdTrade(TradeStartDate,datetime.date(2016,1,2), 1000,'EUR',1100,'USD')
 
 # plot initial PFEs vs realised MTM
 a.GenerateMTF(datetime.date(2015,6,1),dfDates,FXCcyList,FXSims)
@@ -165,13 +168,12 @@ for i in range(0,len(a.MTF[:,0])):
     plt.plot(a.PFE(25))
     plt.plot(a.PFE(10))
     plt.plot(a.PFE(2))
-#    
+
 MTMVector = []
 for BatchDate in daterange(a.TradeStartDate, a.maturityDate):
     a.GenerateMTF(BatchDate,dfDates,FXCcyList,FXSims)
     MTMVector.append(a.MTM())
-    
-print(MTMVector)
 plt.plot(MTMVector)
-
 plt.show()
+
+print(MTMVector)
