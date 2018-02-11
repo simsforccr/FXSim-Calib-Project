@@ -1,6 +1,7 @@
-mport pandas as pd
+import pandas as pd
 import numpy as np
-from ggplot import *
+import matplotlib as mpl
+
 #get data and load relevant columns into a pandas DataFrame
 filename = 'eurofxref-hist.csv'
 allrates = pd.read_csv(filename,usecols=['Date','USD','GBP','JPY','CAD','CHF','AUD'])
@@ -47,7 +48,5 @@ sims[last_date] = rates.USD[last_date]
 for i in range(1,len(sim_dates)):
     sims[sim_dates[i]] = np.exp(df_rnorm[sim_dates[i]])*sims[sim_dates[i-1]]
 
-    
-ggplot(sims)
 
-
+mpl.pyplot.plot(sims)
