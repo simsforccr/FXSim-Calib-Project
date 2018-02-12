@@ -1,6 +1,5 @@
-mport pandas as pd
+import pandas as pd
 import numpy as np
-from ggplot import *
 #get data and load relevant columns into a pandas DataFrame
 filename = 'eurofxref-hist.csv'
 allrates = pd.read_csv(filename,usecols=['Date','USD','GBP','JPY','CAD','CHF','AUD'])
@@ -33,21 +32,79 @@ corr = logreturns.corr()
 usd = logreturns.USD
 std = usd.std()
 
-nsims = 1000
+nsims = 100
 sim_dates = pd.bdate_range('2015-12-31','2016-12-31')
 
 #we generate normal random numbers for each of the simulated values
-rnds = np.random.normal(0,std,[nsims,len(sim_dates)])
-df_rnorm = pd.DataFrame(rnds, index = range(nsims),columns=sim_dates)
+rnds = np.random.normal(0,std,[len(sim_dates),nsims])
+df_rnorm = pd.DataFrame(rnds, columns = range(nsims),index=sim_dates)
 
-sims = pd.DataFrame(index = range(nsims),columns=sim_dates)
+sims = pd.DataFrame(columns= range(nsims),index=sim_dates)
 
 last_date = rates.USD.index[0]
-sims[last_date] = rates.USD[last_date]
+sims.loc[last_date] = rates.USD[last_date]
 for i in range(1,len(sim_dates)):
-    sims[sim_dates[i]] = np.exp(df_rnorm[sim_dates[i]])*sims[sim_dates[i-1]]
+    sims.loc[sim_dates[i]] = np.exp(df_rnorm.loc[sim_dates[i]])*sims.loc[sim_dates[i-1]]
 
     
-ggplot(sims)
+sims.plot()
 
 
+class FXForward:
+    def __init__(self,pay_ccy='USD',rec_ccy='GBP',pay_amt=1500000,rec_amt=1000000,pay_date=pd.to_datetime('2016-10-10'),rec_date=pd.to_datetime('2016-10-10')):
+        self.pay_ccy = pay_ccy
+        self.rec_ccy = rec_ccy
+        self.rec_amt=rec_amt
+        self.pay_amt = pay_amt
+        self.pay_date = pd.to_datetime(pay_date)
+        self.rec_date = pd.to_datetime(rec_date)
+        
+
+
+    def price(self,pay_rate,rec_rate):
+        if self.pay_ccy == 'GBP':
+            self.pay_value = self.pay_amt
+        
+        else:
+            self.pay_value = self.pay_amt/pay_rate
+            
+        if self.rec_ccy == 'GBP':
+            self.rec_value = self.rec_amt
+            
+        else:
+            self.rec_value = self.rec_amt/rec_rate
+            
+        self.value = self.rec_value - self.pay_value
+        
+        return self.value
+        
+    def price_from_sims(self,sims):
+        #for now, sims is a nsims x sim_dates DataFrame, which will give exchange rates for the currency pair we're interested in
+        #we'll have to change this when we want to be able to price trades in more than one currency
+       
+    
+        self.pay_values = pd.DataFrame(self.pay_amt,index = sims.index,columns = sims.columns)
+        self.rec_values = pd.DataFrame(self.rec_amt,index = sims.index,columns = sims.columns)
+        
+        #we will use the simulated FX rate at the tenor date to represent our simulation of the forward rate at that tenor. 
+        
+        if self.pay_ccy == 'GBP':
+            pass 
+        else:
+            self.pay_values = self.pay_values.div(sims)
+           
+        self.pay_values[self.pay_values.index > self.pay_date] = 0
+        
+        if self.rec_ccy == 'GBP':
+            pass
+
+        else:
+            self.rec_values = self.rec_values.div(sims)
+        
+        self.rec_values[self.rec_values.index > self.rec_date] = 0
+        
+        self.values = self.rec_values-self.pay_values
+        return self.values
+
+fxforward = FXForward('abc')
+print fxforward.price_from_sims(sims).head()
