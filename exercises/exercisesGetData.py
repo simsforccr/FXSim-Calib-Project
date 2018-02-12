@@ -32,7 +32,7 @@ corr = logreturns.corr()
 usd = logreturns.USD
 std = usd.std()
 
-nsims = 100
+nsims = 1000
 sim_dates = pd.bdate_range('2015-12-31','2016-12-31')
 
 #we generate normal random numbers for each of the simulated values
@@ -47,7 +47,7 @@ for i in range(1,len(sim_dates)):
     sims.loc[sim_dates[i]] = np.exp(df_rnorm.loc[sim_dates[i]])*sims.loc[sim_dates[i-1]]
 
     
-sims.plot()
+sims.plot(legend= False)
 
 
 class FXForward:
@@ -80,7 +80,7 @@ class FXForward:
         
     def price_from_sims(self,sims):
         #for now, sims is a nsims x sim_dates DataFrame, which will give exchange rates for the currency pair we're interested in
-        #we'll have to change this when we want to be able to price trades in more than one currency
+        #we'll have to change this when we want to be able to h trades in more than one currency
        
     
         self.pay_values = pd.DataFrame(self.pay_amt,index = sims.index,columns = sims.columns)
@@ -107,4 +107,42 @@ class FXForward:
         return self.values
 
 fxforward = FXForward('abc')
-print fxforward.price_from_sims(sims).head()
+prices = fxforward.price_from_sims(sims)
+
+def exposure_profile(trades,sims):
+    mtm = pd.DataFrame(0,index = sims.index,columns = sims.columns)
+    for trade in trades:
+        mtm = mtm + trade.price_from_sims(sims)
+    
+    return mtm
+
+def epe(sims):
+    #takes as input a date-indexed DataFrame, and returns a date-indexed Series with average positive values. 
+    return sims[sims>0].fillna(0).mean(axis=1)
+    
+def pfe(sims,percentile):
+    return sims[sims>0].fillna(0).quantile(percentile/100.0, axis=1)
+    
+def make_random_usdgbp_trades(num_trades):
+
+    trades = []
+    for i in range(num_trades):
+        date = np.random.choice(sim_dates)
+        amount = np.random.randint(1,1000)*1000
+        pay = np.random.choice(['USD','GBP'])
+        rec = 'USD' if pay == 'GBP' else 'GBP'
+        rate = np.random.uniform(1.45,1.5)
+        usd_amt = rate*amount
+        pay_amt = usd_amt if pay == 'USD' else amount
+        rec_amt = usd_amt if rec == 'USD' else amount
+        trade = FXForward(pay_ccy =pay,rec_ccy=rec,rec_amt = rec_amt,pay_amt=pay_amt,pay_date = date,rec_date = date)
+        trades.append(trade)
+    return trades
+
+trades = make_random_usdgbp_trades(100)
+sim_values = exposure_profile(trades,sims)
+
+sim_values.plot(legend=False)
+epe(sim_values).plot()
+pfe(sim_values,98).plot()
+    
