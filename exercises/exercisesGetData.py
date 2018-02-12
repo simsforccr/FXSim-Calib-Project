@@ -1,4 +1,5 @@
 import pandas as pd
+from scipy.linalg import cholesky
 import numpy as np
 #get data and load relevant columns into a pandas DataFrame
 filename = 'eurofxref-hist.csv'
@@ -18,27 +19,36 @@ allrates = allrates.div(allrates.GBP,axis=0)
 allrates = allrates.drop('GBP',1)
 
 
+
 #We only want three years of history.
 rates = allrates[allrates.index <= '2015-12-31']
 rates = rates[rates.index > '2012-12-31']
 
+def ex1_results():
+    print rates.head()
+
+#ex1_results()
+
+
 #we will work mostly with log returns of the FX pairs. 
 logreturns = np.log(rates)-np.log(rates.shift(-1))
 
+def ex2_results():
+    print logreturns.corr()
+    
+#ex2_results()
 
-corr = logreturns.corr()
 
 #for the first day, we will focus on the USD/GBP rate.
 usd = logreturns.USD
 std = usd.std()
 
-nsims = 1000
+nsims = 100
 sim_dates = pd.bdate_range('2015-12-31','2016-12-31')
 
 #we generate normal random numbers for each of the simulated values
 rnds = np.random.normal(0,std,[len(sim_dates),nsims])
 df_rnorm = pd.DataFrame(rnds, columns = range(nsims),index=sim_dates)
-
 sims = pd.DataFrame(columns= range(nsims),index=sim_dates)
 
 last_date = rates.USD.index[0]
@@ -46,9 +56,12 @@ sims.loc[last_date] = rates.USD[last_date]
 for i in range(1,len(sim_dates)):
     sims.loc[sim_dates[i]] = np.exp(df_rnorm.loc[sim_dates[i]])*sims.loc[sim_dates[i-1]]
 
-    
-sims.plot(legend= False)
+def ex3_results():
+    print sims.head()
+    sims.plot(legend= False)
 
+
+#ex3_results()
 
 class FXForward:
     def __init__(self,pay_ccy='USD',rec_ccy='GBP',pay_amt=1500000,rec_amt=1000000,pay_date=pd.to_datetime('2016-10-10'),rec_date=pd.to_datetime('2016-10-10')):
@@ -58,6 +71,13 @@ class FXForward:
         self.pay_amt = pay_amt
         self.pay_date = pd.to_datetime(pay_date)
         self.rec_date = pd.to_datetime(rec_date)
+        
+    def __repr__(self):
+        result = ''
+        result += 'pay: '+ self.pay_ccy + ' ' + str(self.pay_amt) + '\n'
+        result += 'rec: '+ self.rec_ccy + ' ' + str(self.rec_amt) + '\n'
+        result += str(self.pay_date) + '\n'
+        
         
 
 
@@ -106,8 +126,14 @@ class FXForward:
         self.values = self.rec_values-self.pay_values
         return self.values
 
-fxforward = FXForward('abc')
-prices = fxforward.price_from_sims(sims)
+def ex4_results():
+    fxforward = FXForward()
+    print fxforward
+
+def ex5_results():
+    prices = fxforward.price_from_sims(sims)
+    print prices.head()
+    prices.plot()
 
 def exposure_profile(trades,sims):
     mtm = pd.DataFrame(0,index = sims.index,columns = sims.columns)
@@ -139,10 +165,22 @@ def make_random_usdgbp_trades(num_trades):
         trades.append(trade)
     return trades
 
-trades = make_random_usdgbp_trades(100)
-sim_values = exposure_profile(trades,sims)
+def ex9_results():
+    trades = make_random_usdgbp_trades(100)
+    sim_values = exposure_profile(trades,sims)
 
-sim_values.plot(legend=False)
-epe(sim_values).plot()
-pfe(sim_values,98).plot()
-    
+    sim_values.plot(legend=False)
+    epe(sim_values).plot()
+    pfe(sim_values,98).plot()
+
+
+#We now return to the case of mutiple currencies. 
+corr = logreturns.corr()
+std = logreturns.std()
+chol = cholesky(corr)
+currencies = corr.columns
+multi = pd.MultiIndex.from_product([currencies,sim_dates],names=['currency','date'])
+sims = pd.DataFrame(index = multi, columns = range(nsims))
+
+
+
