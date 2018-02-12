@@ -177,10 +177,36 @@ def ex9_results():
 #We now return to the case of mutiple currencies. 
 corr = logreturns.corr()
 std = logreturns.std()
-chol = cholesky(corr)
+
+#we calculate the Cholesky decomposition of the correlation matrix
+
+chol = cholesky(corr,lower=True)
 currencies = corr.columns
+
+#things will get a little tricky with multi-indexing around here. For the FX simulations, we will be working with a 6 x nims x len(sim_dates) matrix
+#we represent this is a multi-indexed DataFrame
 multi = pd.MultiIndex.from_product([currencies,sim_dates],names=['currency','date'])
 sims = pd.DataFrame(index = multi, columns = range(nsims))
 
+#the log retun for each currency is normally distributed with standard deviation given by the historical data for that currency
+for ccy in currencies: 
+    sims.loc[ccy] = np.random.normal(0,std[ccy],[len(sim_dates),nsims])
+    
+#the index must be sorted to use multi-index slicing
+sims = sims.sort_index()
 
+idx = pd.IndexSlice
+
+#for each date, we make sure the correlations between the log returns are as expected.
+for date in sim_dates:
+    sims.loc[idx[:,date],idx[:]] = chol.dot(sims.loc[idx[:,date],idx[:]])
+
+#let's check a random simulation to see if we have correlations we are expecting
+
+first = sims[0].unstack().transpose()
+first = first.astype(float)
+first_corr = first.corr()
+
+#it's now relatively straightforward to re-write the 'price_from_sims' function to take sims.loc[ccy,date], rather than directly taking sims.loc[date]
+#I am not doing this in this version of the code.
 

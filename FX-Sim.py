@@ -108,7 +108,7 @@ class FXfwdTrade:
                             
             BatchStartIndex = Dates.index[Dates['DATE'] == startDate].tolist()[0]
             BatchIndex = Dates.index[Dates['DATE'] == BatchDate].tolist()[0] - BatchStartIndex
-            TradeStartIndex = Dates.index[Dates['DATE'] == self.TradeStartDate].tolist()[0] - BatchStartIndex
+            #TradeStartIndex = Dates.index[Dates['DATE'] == self.TradeStartDate].tolist()[0] - BatchStartIndex
             #TradeEndIndex = Dates.index[Dates['DATE'] == self.maturityDate].tolist()[0] - BatchStartIndex
             MaturityIndex = (self.maturityDate - BatchDate).days
             SimShape = np.shape(Sims[BatchIndex,0,:,:MaturityIndex])
@@ -147,15 +147,16 @@ class FXfwdTrade:
             return np.percentile(self.MTF[:,:],Percent,axis=0,interpolation='nearest')
 
 # Generate FX Sims    
-#[FXSims,FXCcyList,dfDates] = SimulateFXRates(Path + 'FX-TimeSeries-Mod.csv',startDate,endDate,NbSims,SimLength)
+[FXSims,FXCcyList,dfDates] = SimulateFXRates(Path + 'FX-TimeSeries-Mod.csv',startDate,endDate,NbSims,SimLength)
 
-# Generate a trade
+## Generate a trade
 TradeStartDate = datetime.date(2015,6,1)
 #FXRecIndex = dfDates.index[dfDates['DATE'] == TradeStartDate].tolist()[0] - dfDates.index[dfDates['DATE'] == startDate].tolist()[0]
 #FXRecRate = FXSims[FXRecIndex,FXCcyList.index('EUR'),0,0]
 #FXPayIndex = dfDates.index[dfDates['DATE'] == datetime.date(2015,6,1)].tolist()[0] - dfDates.index[dfDates['DATE'] == startDate].tolist()[0]
 #FXPayRate = FXSims[FXPayIndex,FXCcyList.index('USD'),0,0]
 a = FXfwdTrade(TradeStartDate,datetime.date(2016,1,2), 1000,'EUR',1100,'USD')
+
 
 # plot initial PFEs vs realised MTM
 a.GenerateMTF(datetime.date(2015,6,1),dfDates,FXCcyList,FXSims)
@@ -168,12 +169,29 @@ for i in range(0,len(a.MTF[:,0])):
     plt.plot(a.PFE(25))
     plt.plot(a.PFE(10))
     plt.plot(a.PFE(2))
-
-MTMVector = []
+    
 for BatchDate in daterange(a.TradeStartDate, a.maturityDate):
     a.GenerateMTF(BatchDate,dfDates,FXCcyList,FXSims)
     MTMVector.append(a.MTM())
 plt.plot(MTMVector)
 plt.show()
 
-print(MTMVector)
+# Collat trade run chart
+plt.clf()
+PFE99 = []
+PFE01 = []
+MTMVector = []
+
+for BatchDate in daterange(a.TradeStartDate, a.maturityDate):
+    if (a.maturityDate-BatchDate).days >= 5:
+        a.GenerateMTF(BatchDate,dfDates,FXCcyList,FXSims)
+        PFE99.append(a.PFE(99)[5])
+        PFE01.append(a.PFE(1)[5])
+        MTMVector.append(a.MTM())
+        
+plt.plot(MTMVector)
+plt.plot(PFE99)
+plt.plot(PFE01)
+plt.show()
+
+#print(MTMVector)
