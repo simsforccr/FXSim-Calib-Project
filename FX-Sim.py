@@ -161,6 +161,7 @@ a = FXfwdTrade(TradeStartDate,datetime.date(2016,1,2), 1000,'EUR',1100,'USD')
 # plot initial PFEs vs realised MTM
 a.GenerateMTF(datetime.date(2015,6,1),dfDates,FXCcyList,FXSims)
 plt.clf()
+MTMVector = []
 for i in range(0,len(a.MTF[:,0])):
     #plt.plot(a.EE())
     plt.plot(a.PFE(98))
@@ -182,16 +183,18 @@ PFE99 = []
 PFE01 = []
 MTMVector = []
 
+a.GenerateMTF(TradeStartDate,dfDates,FXCcyList,FXSims)
 for BatchDate in daterange(a.TradeStartDate, a.maturityDate):
     if (a.maturityDate-BatchDate).days >= 5:
+        PFE99.append(a.PFE(99)[4])
+        PFE01.append(a.PFE(1)[4])
         a.GenerateMTF(BatchDate,dfDates,FXCcyList,FXSims)
-        PFE99.append(a.PFE(99)[5])
-        PFE01.append(a.PFE(1)[5])
         MTMVector.append(a.MTM())
         
 plt.plot(MTMVector)
 plt.plot(PFE99)
 plt.plot(PFE01)
 plt.show()
+
 
 #print(MTMVector)
