@@ -77,6 +77,7 @@ class FXForward:
         result += 'pay: '+ self.pay_ccy + ' ' + str(self.pay_amt) + '\n'
         result += 'rec: '+ self.rec_ccy + ' ' + str(self.rec_amt) + '\n'
         result += str(self.pay_date) + '\n'
+        return result
         
         
 
@@ -186,24 +187,24 @@ currencies = corr.columns
 #things will get a little tricky with multi-indexing around here. For the FX simulations, we will be working with a 6 x nims x len(sim_dates) matrix
 #we represent this is a multi-indexed DataFrame
 multi = pd.MultiIndex.from_product([currencies,sim_dates],names=['currency','date'])
-sims = pd.DataFrame(index = multi, columns = range(nsims))
+sims_all = pd.DataFrame(index = multi, columns = range(nsims))
 
 #the log retun for each currency is normally distributed with standard deviation given by the historical data for that currency
 for ccy in currencies: 
-    sims.loc[ccy] = np.random.normal(0,std[ccy],[len(sim_dates),nsims])
+    sims_all.loc[ccy] = np.random.normal(0,std[ccy],[len(sim_dates),nsims])
     
 #the index must be sorted to use multi-index slicing
-sims = sims.sort_index()
+sims_all = sims_all.sort_index()
 
 idx = pd.IndexSlice
 
 #for each date, we make sure the correlations between the log returns are as expected.
 for date in sim_dates:
-    sims.loc[idx[:,date],idx[:]] = chol.dot(sims.loc[idx[:,date],idx[:]])
+    sims_all.loc[idx[:,date],idx[:]] = chol.dot(sims_all.loc[idx[:,date],idx[:]])
 
 #let's check a random simulation to see if we have correlations we are expecting
 
-first = sims[0].unstack().transpose()
+first = sims_all[0].unstack().transpose()
 first = first.astype(float)
 first_corr = first.corr()
 
