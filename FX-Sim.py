@@ -34,7 +34,10 @@ def FXSim(fxspot, vol, rdm, time):
     for i in range(0,NbSims):
         for j in range(0,len(time)):
             #sim[i,j] = fxspot+time[j]*(vol)*rdm[i,j]*10/2 # percentage divide by 2 (xccy)
-            sim[i,j] = fxspot+np.sqrt(time[j])*(vol)*rdm[i,j]
+            if j == 0:
+                sim[i,j] = fxspot
+            else:
+                sim[i,j] = sim[i,j-1]+np.sqrt(time[j]-time[j-1])*(vol)*rdm[i,j]
     # return simulation
     return sim
 
@@ -157,6 +160,11 @@ TradeStartDate = datetime.date(2015,6,1)
 #FXPayRate = FXSims[FXPayIndex,FXCcyList.index('USD'),0,0]
 a = FXfwdTrade(TradeStartDate,datetime.date(2016,1,2), 1000,'EUR',1100,'USD')
 
+# plot JPY/GBP rate
+plt.clf()
+for i in range(0,NbSims):
+    plt.plot(FXSims[0,3,i,:])
+plt.show()
 
 # plot initial PFEs vs realised MTM
 a.GenerateMTF(datetime.date(2015,6,1),dfDates,FXCcyList,FXSims)
